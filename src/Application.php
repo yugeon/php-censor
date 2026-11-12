@@ -113,6 +113,10 @@ class Application
     {
         $this->route = $this->router->dispatch();
 
+        if ($this->route === null) {
+            throw new NotFoundException('No route found for this path.');
+        }
+
         if (!empty($this->route['callback'])) {
             $callback = $this->route['callback'];
 
@@ -177,6 +181,7 @@ class Application
         } catch (\Throwable $ex) {
             $view = new View('exception');
             $view->exception = $ex;
+            $view->user      = $this->getUser();
 
             $response = new Response();
 
