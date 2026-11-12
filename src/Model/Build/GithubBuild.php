@@ -240,17 +240,29 @@ class GithubBuild extends GitBuild
 
         try {
             if (\in_array($this->getSource(), Build::$pullRequestSources, true)) {
-                $pullRequestId = $this->getExtra('pull_request_number');
+                $rawPullRequestId = $this->getExtra('pull_request_number');
+                $pullRequestId    = \filter_var(
+                    \is_int($rawPullRequestId) || \is_string($rawPullRequestId) ? $rawPullRequestId : '',
+                    \FILTER_VALIDATE_INT
+                );
+                if ($pullRequestId === false || $pullRequestId <= 0) {
+                    return false;
+                }
 
                 $cmd = 'cd "%s" && git checkout -b php-censor/'
-                    . $this->getId()
-                    . ' %s && git pull -q --no-edit origin pull/%s/head';
+                    . (int)$this->getId()
+                    . ' %s && git pull -q --no-edit origin pull/%d/head';
 
                 if (!empty($extra['git_ssh_wrapper'])) {
                     $cmd = 'export GIT_SSH="' . $extra['git_ssh_wrapper'] . '" && ' . $cmd;
                 }
 
-                $success = $builder->executeCommand($cmd, $cloneTo, $this->getBranch(), $pullRequestId);
+                $success = $builder->executeCommand(
+                    $cmd,
+                    $cloneTo,
+                    \escapeshellarg($this->getBranch() ?? ''),
+                    $pullRequestId
+                );
             }
         } catch (\Throwable $ex) {
             $success = false;

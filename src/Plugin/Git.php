@@ -93,10 +93,15 @@ class Git extends Plugin
     protected function runMergeAction($options)
     {
         if (\array_key_exists('branch', $options)) {
-            $cmd = 'cd "%s" && git checkout %s && git merge "%s"';
+            $cmd = 'cd "%s" && git checkout %s && git merge %s';
             $path = $this->builder->buildPath;
 
-            return $this->builder->executeCommand($cmd, $path, $options['branch'], $this->build->getBranch());
+            return $this->builder->executeCommand(
+                $cmd,
+                $path,
+                \escapeshellarg(\is_scalar($options['branch']) ? (string)$options['branch'] : ''),
+                \escapeshellarg($this->build->getBranch() ?? '')
+            );
         }
     }
 
@@ -117,9 +122,13 @@ class Git extends Plugin
             $message = $this->builder->interpolate($options['message'], true);
         }
 
-        $cmd = 'git tag %s -m "%s"';
+        $cmd = 'git tag %s -m %s';
 
-        return $this->builder->executeCommand($cmd, $tagName, $message);
+        return $this->builder->executeCommand(
+            $cmd,
+            \escapeshellarg((string)$tagName),
+            \escapeshellarg((string)$message)
+        );
     }
 
     /**
@@ -128,7 +137,7 @@ class Git extends Plugin
      */
     protected function runPullAction($options)
     {
-        $branch = $this->build->getBranch();
+        $branch = $this->build->getBranch() ?? '';
         $remote = 'origin';
 
         if (\array_key_exists('branch', $options)) {
@@ -139,7 +148,11 @@ class Git extends Plugin
             $remote = $this->builder->interpolate($options['remote'], true);
         }
 
-        return $this->builder->executeCommand('git pull %s %s', $remote, $branch);
+        return $this->builder->executeCommand(
+            'git pull %s %s',
+            \escapeshellarg($remote),
+            \escapeshellarg($branch)
+        );
     }
 
     /**
@@ -148,7 +161,7 @@ class Git extends Plugin
      */
     protected function runPushAction($options)
     {
-        $branch = $this->build->getBranch();
+        $branch = $this->build->getBranch() ?? '';
         $remote = 'origin';
 
         if (\array_key_exists('branch', $options)) {
@@ -159,6 +172,10 @@ class Git extends Plugin
             $remote = $this->builder->interpolate($options['remote'], true);
         }
 
-        return $this->builder->executeCommand('git push %s %s', $remote, $branch);
+        return $this->builder->executeCommand(
+            'git push %s %s',
+            \escapeshellarg($remote),
+            \escapeshellarg($branch)
+        );
     }
 }

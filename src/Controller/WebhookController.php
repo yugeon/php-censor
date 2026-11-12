@@ -817,6 +817,77 @@ class WebhookController extends Controller
     }
 
     /**
+     * GitHub API URL for the commits of a pull request.
+     * The address is taken from the stored project reference, not from the webhook body.
+     *
+     * @throws RuntimeException
+     */
+    protected function githubPullRequestCommitsUrl(Project $project, array $payload): string
+    {
+        $rawPullRequestNumber = $payload['number'] ?? '';
+        $pullRequestNumber    = \filter_var(
+            \is_int($rawPullRequestNumber) || \is_string($rawPullRequestNumber) ? $rawPullRequestNumber : '',
+            \FILTER_VALIDATE_INT
+        );
+        if ($pullRequestNumber === false || $pullRequestNumber <= 0) {
+            throw new RuntimeException('Invalid pull request number.');
+        }
+
+        $reference = $project->getReference();
+        if (!\is_string($reference) || $reference === '') {
+            throw new RuntimeException('Invalid GitHub repository reference.');
+        }
+
+        $repository = $this->githubRepositoryFromReference($reference);
+        $path       = '/repos/' . $repository['slug'] . '/pulls/' . $pullRequestNumber . '/commits';
+
+        if (\in_array($repository['host'], ['github.com', 'www.github.com'], true)) {
+            return 'https://api.github.com' . $path;
+        }
+
+        return 'https://' . $repository['host'] . '/api/v3' . $path;
+    }
+
+    /**
+     * @return array{host: string, slug: string}
+     *
+     * @throws RuntimeException
+     */
+    protected function githubRepositoryFromReference(string $reference): array
+    {
+        $reference = \trim($reference);
+        $host      = '';
+        $path      = '';
+
+        if (\preg_match('#^[^@\\s]+@([^:\\s]+):([^\\s]+)$#', $reference, $matches)) {
+            $host = $matches[1];
+            $path = $matches[2];
+        } else {
+            $parts = \parse_url($reference);
+            if (\is_array($parts) && !empty($parts['host']) && isset($parts['path'])) {
+                $host = $parts['host'];
+                $path = $parts['path'];
+            } elseif (\preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?$#', $reference)) {
+                $host = 'github.com';
+                $path = $reference;
+            }
+        }
+
+        $host = \strtolower($host);
+        $path = \preg_replace('#\\.git$#i', '', \trim($path, '/')) ?? '';
+
+        if (
+            !\preg_match('#^[a-z0-9.-]+$#', $host) ||
+            \strpos($host, '..') !== false ||
+            !\preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $path)
+        ) {
+            throw new RuntimeException('Invalid GitHub repository reference.');
+        }
+
+        return ['host' => $host, 'slug' => $path];
+    }
+
+    /**
      * Handle the payload when Github sends a Pull Request webhook.
      *
      * @throws Exception
@@ -842,16 +913,16 @@ class WebhookController extends Controller
             $headers['Authorization'] = 'token ' . $token;
         }
 
-        $url = $payload['pull_request']['commits_url'];
+        $url = $this->githubPullRequestCommitsUrl($project, $payload);
 
         //for large pull requests, allow grabbing more then the default number of commits
-        $customPerPage = $this->configuration->get('php-censor.github.per_page');
+        $customPerPage = (int)$this->configuration->get('php-censor.github.per_page');
         $params        = [];
-        if ($customPerPage) {
+        if ($customPerPage > 0) {
             $params['per_page'] = $customPerPage;
         }
 
-        $client   = new Client();
+        $client   = new Client(['allow_redirects' => false]);
         $response = $client->get($url, [
             'headers' => $headers,
             'query'   => $params,

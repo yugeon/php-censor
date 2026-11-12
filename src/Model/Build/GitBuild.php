@@ -71,9 +71,9 @@ class GitBuild extends TypedBuild
     {
         $branches = $this->getExtra('branches');
         if (!empty($branches)) {
-            $cmd = 'cd "%s" && git merge --quiet origin/%s';
+            $cmd = 'cd "%s" && git merge --quiet %s';
             foreach ($branches as $branch) {
-                $success = $builder->executeCommand($cmd, $buildPath, $branch);
+                $success = $builder->executeCommand($cmd, $buildPath, \escapeshellarg('origin/' . $branch));
                 if (!$success) {
                     $builder->log('Fail merge branch origin/' . $branch, LogLevel::ERROR);
 
