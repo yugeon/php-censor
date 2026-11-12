@@ -163,6 +163,32 @@ class Builder
 
     public function execute(): void
     {
+        try {
+            $this->runBuild();
+        } finally {
+            $this->restoreProcessPath();
+        }
+    }
+
+    /**
+     * putenv() does not change the PATH captured at worker start.
+     * The worker process is reused, so each build ends on that original PATH.
+     */
+    private function restoreProcessPath(): void
+    {
+        if (!isset($_SERVER['PATH']) || !\is_string($_SERVER['PATH']) || $_SERVER['PATH'] === '') {
+            return;
+        }
+
+        if (\getenv('PATH') === $_SERVER['PATH']) {
+            return;
+        }
+
+        \putenv('PATH=' . $_SERVER['PATH']);
+    }
+
+    private function runBuild(): void
+    {
         $this->build->setStatusRunning();
         $this->build->setStartDate(new DateTime());
         $this->store->save($this->build);

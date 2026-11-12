@@ -101,5 +101,6 @@ Plugins
 * [Gulp](plugins/gulp.md) - `gulp`
 * [Package Build](plugins/package_build.md) - `package_build`
 * [Phar](plugins/phar.md) - `phar`
+* [PHP Binary](plugins/php_binary.md) - `php_binary`
 * [Shell](plugins/shell.md) - `shell`
 * [Wipe](plugins/wipe.md) - `wipe`
